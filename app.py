@@ -1,40 +1,58 @@
+import sys
+sys.path.append("../AccommodationRecommender-Airbnb")
+
+from utils.text_similarity import get_embedings,get_similarity
+
 import numpy as np
 import pandas as pd
 import datetime as dt
-import pendulum as pen
+# import pendulum as pen
 from icecream import ic
 import time
+import json
 
-import tensorflow as tf
-from tensorflow_hub import hub
+from PIL import Image
 
-
-embader = hub.load("https://tfhub.dev/google/universal-sentence-encoder/4")
-
-ic("Done")
-
-quit()
 import dash
 from dash import Dash, html, dcc, callback, Output, Input, State, dash_table
 
 import dash_bootstrap_components as dbc
 
 data = pd.read_csv("data/content_data/not_na_data_price.csv")
+
+
+data[['CurrentPrice','NumberOfGuest','NumberOfBedrooms','NumberOfBeds','NumberOfBaths']] = \
+    data[['CurrentPrice','NumberOfGuest','NumberOfBedrooms','NumberOfBeds','NumberOfBaths']].apply(lambda x: x.astype(float))
+
+
 not_na_df = pd.read_csv("data/content_data/full_not_na_data.csv")
 
 
-# print(data.shape)
-# data.dropna(inplace=True)
+# print(data[['CurrentPrice']].head())
 
-# print(data.shape)
+# quit()
+logo_path = 'data/images/airbnb_logo.png'
+logo = Image.open(logo_path)
 
-data[['lower_country','lower_location','lower_city','lower_state']] = data[['Country','Location','City','State']].apply(lambda x: x.str.lower())
-data['location_list'] = data['lower_location'].apply(lambda x: list(map(str.strip,x.split(","))))
+with open("data/content_data/emdebings.json",'r') as file:
+    embedings = json.load(file)
 
+for key in embedings:
+    if key == "ID":
+        continue
     
+    for inner_key,value in embedings[key].items():
+        embedings[key][inner_key] = np.array(value)
 
-# print(data[['lower_country','lower_location','lower_city','lower_state']].head(2))
- 
+
+embedings_df = pd.DataFrame(embedings)
+embedings_df['ID'] = embedings_df['ID'].str.strip()
+
+
+# merge
+not_na_df = not_na_df.merge(embedings_df,on='ID')
+
+
 
 sections = data['Section'].unique().tolist()
 countries = data['Country'].unique().tolist()
@@ -60,6 +78,84 @@ app = Dash()
 
 
 
+# 
+def generate_image_div(item_id):
+
+    df = not_na_df.copy()
+    df.set_index("ID",inplace=True)
+
+    title = df.loc[item_id,'ItemTitle'].values[0]
+    description = df.loc[item_id,'ItemDescription'].values[0]
+    location = df.loc[item_id,"Location"].values[0]
+
+    amenities_offered_dict = eval(df.loc[item_id,'AmenitiesWithCategories'].values[0])
+
+    # amenities
+    amenities_display = [
+                        html.Div([
+                                html.H4(category),
+                                html.P(", ".join(content))
+                            ]) 
+                            for category,content in amenities_offered_dict.items()
+    ]
+
+    guests,bedrooms,beds,baths, = df.loc[item_id,['NumberOfGuest', 'NumberOfBedrooms', 'NumberOfBeds', 'NumberOfBaths']].values[0]
+    price = df.loc[item_id,"CurrentPrice"].values[0]
+    unit = df.loc[item_id,'ItemUnit'].values[0]
+    # where to stay
+
+    stay = html.Div(html.P(f"{int(bedrooms)} bedrooms, {int(beds)} beds, {int(baths)} baths, {int(guests)} guests,  price per {unit}: ${price}"))
+
+
+    # ratings 
+    review_by_section = eval(df.loc[item_id,'ItemReviewBySections'].values[0])
+    total_review = df.loc[item_id,"ItemReview"].values[0]
+    number_of_ratings = df.loc[item_id,"ItemRatings"].values[0]
+
+    # url 
+    url = df.loc[item_id,'URL'].values[0]
+
+
+    ratings_display = [
+        html.Div([
+            html.P(section + " ------- " + str(review))
+        ])
+        for section,review in review_by_section.items()
+    ]
+
+    div = html.Div([
+
+        html.Div([
+
+            html.H3(title),
+            html.A("See on airbnb.com",href=url),
+            html.H4(location + ",       Mean Review   " + str(total_review) + ",  Number of reviews " + str(int(number_of_ratings)))
+        ],style={"marginTop":"30px","marginLeft":"50px"}),
+        html.Div([
+            html.Div([
+                html.Div([
+                    html.Img(src=logo,style={"marginTop":"10px","marginLeft":"50px","width":"200px","height":"200px"})
+                ],style={"flex":"70%"}),
+                html.Div([
+                    html.Div(ratings_display),
+                ],style={"flex":"30%"})
+            ],style={"display":"flex"})
+
+        ]),
+        html.Div([  
+                    stay,
+                    html.H3("Description"),
+                    html.P(description),
+                    html.Br(),
+                    html.H3("Amenities"),
+                    html.Div(amenities_display)
+                    
+                ],style={"width":"100%","marginLeft":"50px"})
+
+    ],style={'border':'2px',"width":"50%"})
+    
+    return div
+
 tabs = dcc.Tabs([
     dcc.Tab(id='welcome-page',label='Welcome',value='welcome'),
     dcc.Tab(id='simple-flter-page',label='Constraint-based',value='simple-filter'),
@@ -67,13 +163,15 @@ tabs = dcc.Tabs([
 
     ],
     id = 'tabs',
-    value='advaneced-filter')
+    value='welcome')
 
 # app.server()
 
 
 welcome_page_div = html.Div([
 
+    # html.Img(src=logo,style={"marginTop":"100px","width":"200px","height":"200px"})
+    generate_image_div("B5E327D844CA0024C61ADE0FA5606A3F_element_2602")
 ])
 # ----------------------------------------------------------------------------FILTER DIV---------------------------------------------------------------------------------------------
 simple_filter_div = html.Div([
@@ -264,31 +362,34 @@ advanced_filter_div = html.Div([
 
     html.Div([
         html.Div([
-            dbc.Textarea(id='enter-item-description',
+            html.H3(["Describe the house you would like to live in"],
+                    style={"marginRight":"100px","marginLeft":"100px","marginTop":"100px"}),   
+
+            dbc.Textarea(id='item-description-input',
                   size='lg',
                   placeholder='Description',
                   rows=10,
-                  style={"marginRight":"100px","marginLeft":"100px",
-                         "marginTop":"100px","width":"400px","height":"200px"})
+                  style={"marginRight":"100px","marginLeft":"100px","marginTop":"10px",
+                         "width":"400px","height":"200px"}),
+            
+            dbc.Input(id='approximate-price',type='number',min=0,style={"marginLeft":"100px","width":"99px"},placeholder='price'),
+            dbc.Input(id='approximate-review',type='number',min=0,style={"marginLeft":"10px","width":"99px"},placeholder='review'),
+            dbc.Input(id='approximate-retings',type='number',min=0,style={"marginLeft":"10px","width":"99px"},placeholder='retings'),
+
+
+
+            dbc.Button('Submit',id='submit-search-by-description',n_clicks=0,
+                        style={"marginRight":"10px","marginLeft":"10px","marginTop":"10px","width":"55px"})        
         ],
-        # style={"flex":"90%"}
+        style={"flex":"300%"}
         ),
 
         html.Div([
-          dbc.Col([
-              dbc.Row([
-                  dbc.Input(type='number',placeholder='100',id='case-based-price')
-                  
-              ]),
-              dbc.Row([
-                  
-              ]),
-              dbc.Row([
-                  
-              ])
-          ])  
+
+
         ],
-        # style={"flex":"10%"}
+        id = 'advanced-filter-result',
+        style={"flex":"700%"}
         )
         
     ],style={"display":"flex"}
@@ -376,7 +477,7 @@ def start_filter(tab):
     State(component_id='accomodation-type',component_property='value'),
     prevent_initial_call = True
 )
-def return_df(click,location,price_from,price_to,guests_from,guests_to,beds_from,beds_to,bedrooms_from,bedrooms_to,baths_from,baths_to,home_type):
+def simple_filter_result(click,location,price_from,price_to,guests_from,guests_to,beds_from,beds_to,bedrooms_from,bedrooms_to,baths_from,baths_to,home_type):
 
 
     if  click:
@@ -448,6 +549,47 @@ def return_df(click,location,price_from,price_to,guests_from,guests_to,beds_from
 
     
 
+@callback(
+    Output(component_id='advanced-filter-result',component_property='children'),
+    Input(component_id='item-description-input',component_property='value'),
+    Input(component_id='submit-search-by-description',component_property='n_clicks'),
+    Input(component_id='approximate-price',component_property='value')
+)
+
+def return_advanced_filter_result(description,click,price):
+
+
+    if click:
+
+        # price = 0 if price is None else price
+        
+        # # std = np.std(price)[0]
+
+        # price = price + (0.1*price)
+
+
+        # print("\n\n\n\n\n\n\n\n")
+        df = not_na_df.copy()
+        # print(df.columns)
+
+        # df = df[df['CurrentPrice'] <= price]
+
+        input_embedings = get_embedings(description,512,True)
+
+        df['DescriptionSimilarity'] = df['ItemDescriptionEmbedings'].apply(lambda x: get_similarity(x,input_embedings))
+
+        df.sort_values('DescriptionSimilarity',inplace=True,ascending=False)
+
+        df = df.head(20).drop(['ItemDescriptionEmbedings','CommentsEmbedings','AmenitiesEmbedings'],axis=1)
+
+        df['DescriptionSimilarity'] = df['DescriptionSimilarity'].astype(str)
+        
+
+        return html.Div(dash_table.DataTable(data=df.to_dict('records'),columns=[{"name":i,"id":i} for i in df.columns]))
+
+ 
+
+
 
 if __name__ == "__main__":
-    app.run_server(debug=True,port=8889)
+    app.run_server(debug=True,port=8890)

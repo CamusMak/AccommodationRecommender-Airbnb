@@ -1,0 +1,7 @@
+torch
+transformers
+numpy
+gensim
+icecream
+dash
+dash_bootstrap_components
