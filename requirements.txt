@@ -5,3 +5,5 @@ gensim
 icecream
 dash
 dash_bootstrap_components
+selenium
+pillow

@@ -18,14 +18,10 @@ from dash import Dash, html, dcc, callback, Output, Input, State, dash_table
 
 import dash_bootstrap_components as dbc
 
-data = pd.read_csv("data/content_data/not_na_data_price.csv")
+# data = pd.read_csv("data/content_data/not_na_data_price.csv")
 
 
-data[['CurrentPrice','NumberOfGuest','NumberOfBedrooms','NumberOfBeds','NumberOfBaths']] = \
-    data[['CurrentPrice','NumberOfGuest','NumberOfBedrooms','NumberOfBeds','NumberOfBaths']].apply(lambda x: x.astype(float))
-
-
-not_na_df = pd.read_csv("data/content_data/full_not_na_data.csv")
+data = pd.read_csv("data/content_data/full_not_na_data.csv")
 
 
 # print(data[['CurrentPrice']].head())
@@ -50,7 +46,7 @@ embedings_df['ID'] = embedings_df['ID'].str.strip()
 
 
 # merge
-not_na_df = not_na_df.merge(embedings_df,on='ID')
+data = data.merge(embedings_df,on='ID')
 
 
 
@@ -81,14 +77,31 @@ app = Dash()
 # 
 def generate_image_div(item_id):
 
-    df = not_na_df.copy()
+    df = data.copy()
     df.set_index("ID",inplace=True)
 
-    title = df.loc[item_id,'ItemTitle'].values[0]
-    description = df.loc[item_id,'ItemDescription'].values[0]
-    location = df.loc[item_id,"Location"].values[0]
+    try:
+        title = df.loc[item_id,'ItemTitle'].values[0]
+    except:
+        title = df.loc[item_id,'ItemTitle']
+    try:
+        description = df.loc[item_id,'ItemDescription'].values[0]
 
-    amenities_offered_dict = eval(df.loc[item_id,'AmenitiesWithCategories'].values[0])
+    except:
+        description = df.loc[item_id,'ItemDescription']
+
+    try:
+
+        location = df.loc[item_id,"Location"].values[0]
+    except:
+        location = df.loc[item_id,"Location"]
+
+
+
+    try:
+        amenities_offered_dict = eval(df.loc[item_id,'AmenitiesWithCategories'].values[0])
+    except:
+        amenities_offered_dict = eval(df.loc[item_id,'AmenitiesWithCategories'])
 
     # amenities
     amenities_display = [
@@ -99,21 +112,73 @@ def generate_image_div(item_id):
                             for category,content in amenities_offered_dict.items()
     ]
 
-    guests,bedrooms,beds,baths, = df.loc[item_id,['NumberOfGuest', 'NumberOfBedrooms', 'NumberOfBeds', 'NumberOfBaths']].values[0]
-    price = df.loc[item_id,"CurrentPrice"].values[0]
-    unit = df.loc[item_id,'ItemUnit'].values[0]
+    try:
+
+        guests = df.loc[item_id,"NumberOfGuest"].values[0]
+    except:
+        guests = df.loc[item_id,"NumberOfGuest"]
+    try:
+
+        bedrooms = df.loc[item_id,"NumberOfBedrooms"].values[0]
+    except:
+        bedrooms = df.loc[item_id,"NumberOfBedrooms"]
+    try:
+
+        beds = df.loc[item_id,"NumberOfBeds"].values[0]
+    except:
+        beds = df.loc[item_id,"NumberOfBeds"]
+    try:
+
+        baths = df.loc[item_id,"NumberOfBaths"].values[0]
+    except:
+        baths = df.loc[item_id,"NumberOfBaths"]
+
+    try:
+
+        price = df.loc[item_id,"CurrentPrice"].values[0]
+    except:
+        price = df.loc[item_id,"CurrentPrice"]
+
+    try:
+        unit = df.loc[item_id,'ItemUnit'].values[0]
+    except:
+        unit = df.loc[item_id,'ItemUnit']
+
     # where to stay
 
-    stay = html.Div(html.P(f"{int(bedrooms)} bedrooms, {int(beds)} beds, {int(baths)} baths, {int(guests)} guests,  price per {unit}: ${price}"))
+    stay = html.Div(html.P(f"{bedrooms} bedrooms, {beds} beds, {baths} baths, {guests} guests,  price per {unit}: ${price}"))
 
 
     # ratings 
-    review_by_section = eval(df.loc[item_id,'ItemReviewBySections'].values[0])
-    total_review = df.loc[item_id,"ItemReview"].values[0]
-    number_of_ratings = df.loc[item_id,"ItemRatings"].values[0]
+
+    try:
+        review_by_section = eval(df.loc[item_id,'ItemReviewBySections'].values[0])
+
+    except:
+        review_by_section = eval(df.loc[item_id,'ItemReviewBySections'])
+
+    try:
+        total_review = df.loc[item_id,"ItemReview"].values[0]
+    except:
+        total_review = df.loc[item_id,"ItemReview"]
+
+
+    try:
+        number_of_ratings = df.loc[item_id,"ItemRatings"].values[0]
+    except:
+        number_of_ratings = df.loc[item_id,"ItemRatings"]
+
+
+
 
     # url 
-    url = df.loc[item_id,'URL'].values[0]
+
+    try:
+        url = df.loc[item_id,'URL'].values[0]
+
+    except:
+        url = df.loc[item_id,'URL']
+
 
 
     ratings_display = [
@@ -127,6 +192,7 @@ def generate_image_div(item_id):
 
         html.Div([
 
+            html.Hr(),
             html.H3(title),
             html.A("See on airbnb.com",href=url),
             html.H4(location + ",       Mean Review   " + str(total_review) + ",  Number of reviews " + str(int(number_of_ratings)))
@@ -150,9 +216,9 @@ def generate_image_div(item_id):
                     html.H3("Amenities"),
                     html.Div(amenities_display)
                     
-                ],style={"width":"100%","marginLeft":"50px"})
+                ],style={"width":"95%","marginLeft":"50px"})
 
-    ],style={'border':'2px',"width":"50%"})
+    ],style={'border':'2px',"width":"100%"})
     
     return div
 
@@ -169,10 +235,15 @@ tabs = dcc.Tabs([
 
 
 welcome_page_div = html.Div([
+        html.Div(
+            [html.Div(generate_image_div(item_id)) for item_id in data['ID'][:20]],style={"flex":"50%","width":"100%"}
 
-    # html.Img(src=logo,style={"marginTop":"100px","width":"200px","height":"200px"})
-    generate_image_div("B5E327D844CA0024C61ADE0FA5606A3F_element_2602")
-])
+        ),
+        html.Div(
+            [html.Div(generate_image_div(item_id)) for item_id in data['ID'][20:40]],style={"flex":"50%","width":"100%"}
+        )
+    ],style={"display":"flex"}
+)
 # ----------------------------------------------------------------------------FILTER DIV---------------------------------------------------------------------------------------------
 simple_filter_div = html.Div([
 
@@ -345,9 +416,7 @@ simple_filter_div = html.Div([
         
         ),
 
-            html.Div([
-            
-        ],
+            html.Div(
         id = 'search-result',
         style={'display':"90%"}
         ),
@@ -372,22 +441,19 @@ advanced_filter_div = html.Div([
                   style={"marginRight":"100px","marginLeft":"100px","marginTop":"10px",
                          "width":"400px","height":"200px"}),
             
+            html.H3("Your budget",style={"marginLeft":"100px"}),
             dbc.Input(id='approximate-price',type='number',min=0,style={"marginLeft":"100px","width":"99px"},placeholder='price'),
-            dbc.Input(id='approximate-review',type='number',min=0,style={"marginLeft":"10px","width":"99px"},placeholder='review'),
-            dbc.Input(id='approximate-retings',type='number',min=0,style={"marginLeft":"10px","width":"99px"},placeholder='retings'),
-
+            # dbc.Input(id='approximate-review',type='number',min=0,style={"marginLeft":"10px","width":"99px"},placeholder='review'),
 
 
             dbc.Button('Submit',id='submit-search-by-description',n_clicks=0,
-                        style={"marginRight":"10px","marginLeft":"10px","marginTop":"10px","width":"55px"})        
+                        style={"marginRight":"10px","marginLeft":"100px","marginTop":"10px","width":"55px"})        
         ],
         style={"flex":"300%"}
         ),
 
-        html.Div([
+        html.Div(
 
-
-        ],
         id = 'advanced-filter-result',
         style={"flex":"700%"}
         )
@@ -410,10 +476,8 @@ app.layout = html.Div([
 
 
 
-    html.Div([
-
-        welcome_page_div   
-    ],
+    html.Div(
+        welcome_page_div,
     id = 'welcome-page-div',
     style = {"display":"none"}
     ),
@@ -473,7 +537,6 @@ def start_filter(tab):
     Input(component_id='bedrooms-to',component_property='value'),
     Input(component_id='baths-from',component_property='value'),
     Input(component_id='baths-to',component_property='value'),
-    # State(component_id='item-review',component_property='value'),
     State(component_id='accomodation-type',component_property='value'),
     prevent_initial_call = True
 )
@@ -497,6 +560,7 @@ def simple_filter_result(click,location,price_from,price_to,guests_from,guests_t
         # print(price_from,price_to,beds_from,beds_to,baths_from,baths_to,bedrooms_from,bedrooms_to,guests_to,guests_from)
 
         if location:
+
 
             location_list = location.split(" ")
 
@@ -544,7 +608,17 @@ def simple_filter_result(click,location,price_from,price_to,guests_from,guests_t
         df.drop("location_list",axis=1,inplace=True)
 
         
-        return html.Div(children=[dash_table.DataTable(data=df.to_dict('records'),columns=[{"name":i,"id":i} for i in df.columns])])
+        # return html.Div(children=[dash_table.DataTable(data=df.to_dict('records'),columns=[{"name":i,"id":i} for i in df.columns])])
+
+        if len(df) <= 10:
+            n = len(df)
+        else:
+            n = 10
+        return [ html.Div(
+                        [ generate_image_div(item_id)]
+                    )
+                    for item_id in df['ID'].values[:n]
+                ]
 
 
     
@@ -569,7 +643,7 @@ def return_advanced_filter_result(description,click,price):
 
 
         # print("\n\n\n\n\n\n\n\n")
-        df = not_na_df.copy()
+        df = data.copy()
         # print(df.columns)
 
         # df = df[df['CurrentPrice'] <= price]
@@ -585,7 +659,17 @@ def return_advanced_filter_result(description,click,price):
         df['DescriptionSimilarity'] = df['DescriptionSimilarity'].astype(str)
         
 
-        return html.Div(dash_table.DataTable(data=df.to_dict('records'),columns=[{"name":i,"id":i} for i in df.columns]))
+        # return html.Div(dash_table.DataTable(data=df.to_dict('records'),columns=[{"name":i,"id":i} for i in df.columns]))
+
+        if len(df) <= 10:
+            n = len(df)
+        else:
+            n = 10
+        return [ html.Div(
+                        [ generate_image_div(item_id)]
+                    )
+                    for item_id in df['ID'].values[:n]
+                ]
 
  
 
