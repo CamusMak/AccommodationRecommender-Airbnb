@@ -1,3 +1,3 @@
 # AccommodationRecommender-Airbnb
 
-https://accommodation-recommender-airbnb.onrender.com/
+(Projecet url)[https://accommodation-recommender-airbnb.onrender.com/]
