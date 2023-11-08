@@ -70,8 +70,11 @@ accomodation_types = data['Section'].unique().tolist()
 
 
 data.index = list(range(len(data)))
+
+
 app = Dash()
 
+app.server
 
 
 # 
@@ -441,8 +444,8 @@ advanced_filter_div = html.Div([
                   style={"marginRight":"100px","marginLeft":"100px","marginTop":"10px",
                          "width":"400px","height":"200px"}),
             
-            html.H3("Your budget",style={"marginLeft":"100px"}),
-            dbc.Input(id='approximate-price',type='number',min=0,style={"marginLeft":"100px","width":"99px"},placeholder='price'),
+            html.H3("Approximate price",style={"marginLeft":"100px"}),
+            # dbc.Input(id='approximate-price',type='number',min=0,style={"marginLeft":"100px","width":"99px"},placeholder='price'),
             # dbc.Input(id='approximate-review',type='number',min=0,style={"marginLeft":"10px","width":"99px"},placeholder='review'),
 
 
@@ -626,27 +629,18 @@ def simple_filter_result(click,location,price_from,price_to,guests_from,guests_t
 @callback(
     Output(component_id='advanced-filter-result',component_property='children'),
     Input(component_id='item-description-input',component_property='value'),
-    Input(component_id='submit-search-by-description',component_property='n_clicks'),
-    Input(component_id='approximate-price',component_property='value')
+    Input(component_id='submit-search-by-description',component_property='n_clicks')
+    # Input(component_id='approximate-price',component_property='value')
 )
 
-def return_advanced_filter_result(description,click,price):
+def return_advanced_filter_result(description,click):
 
 
     if click:
 
-        # price = 0 if price is None else price
-        
-        # # std = np.std(price)[0]
 
-        # price = price + (0.1*price)
-
-
-        # print("\n\n\n\n\n\n\n\n")
         df = data.copy()
-        # print(df.columns)
 
-        # df = df[df['CurrentPrice'] <= price]
 
         input_embedings = get_embedings(description,512,True)
 
